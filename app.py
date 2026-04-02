@@ -1,81 +1,82 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 
 # 1. 페이지 설정
-st.set_page_config(page_title="TOPO 시스템 관리자", layout="wide", page_icon="🏢")
+st.set_page_config(page_title="TOPO 생산 관리 시스템", layout="wide", page_icon="🏭")
 
-# 2. 스타일 설정 (CSS)
-st.markdown("""
-    <style>
-    .main { background-color: #f5f7f9; }
-    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    </style>
-    """, unsafe_allow_html=True)
-
-st.title("🏗️ TOPO 시스템 통합 관리 도구")
-st.info("엑셀 파일을 업로드하여 공정 및 업무 내역을 관리하세요.")
-
-# 3. 사이드바 - 파일 업로드
+# 2. 사이드바: 분류 및 날짜 선택
 with st.sidebar:
-    st.header("📂 데이터 로드")
-    uploaded_file = st.file_uploader("엑셀 파일(.xlsx) 선택", type=["xlsx"])
+    st.header("📍 조회 조건 설정")
     
-    if uploaded_file:
-        st.success("파일 업로드 완료!")
-        # 모든 시트 이름 가져오기
-        excel_file = pd.ExcelFile(uploaded_file)
-        sheet_names = excel_file.sheet_names
-        selected_sheet = st.selectbox("조회할 시트(공정/날짜) 선택", sheet_names)
-
-# 4. 메인 화면 로직
-if uploaded_file and selected_sheet:
-    # 데이터 불러오기 (헤더 위치가 다를 수 있어 자동 감지 시도)
-    df = pd.read_excel(uploaded_file, sheet_name=selected_sheet)
+    # 가. 작성 날짜 선택 (달력 위젯)
+    selected_date = st.date_input("작성 날짜 선택", datetime.now())
     
-    # 상단 요약 카드
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("총 데이터 행 수", f"{len(df)}건")
-    with col2:
-        st.metric("현재 시트", selected_sheet)
-    with col3:
-        st.metric("데이터 열(Columns)", f"{len(df.columns)}개")
+    # 나. 대분류 선택
+    main_category = st.selectbox("대분류 선택", ["생산부", "관리부", "생산지원"])
+    
+    # 다. 부서 선택 (대분류에 따른 동적 필터링은 아니지만, 요청하신 목록 구성)
+    # 완성을 세부적으로 나누기 위해 딕셔너리 구조 활용 가능
+    dept_list = ["재단", "봉제", "완성", "기타"]
+    selected_dept = st.selectbox("부서 선택", dept_list)
+    
+    # 라. 완성 부서인 경우 추가 세부 구분 표시
+    sub_dept = None
+    if selected_dept == "완성":
+        sub_dept = st.radio(
+            "완성 세부 구분",
+            ["Iron", "Folding", "Packing", "완성창고", "WET PROCESS"]
+        )
 
     st.divider()
+    uploaded_file = st.file_uploader("엑셀 파일(.xlsx) 업로드", type=["xlsx"])
 
-    # 5. 검색 및 필터링
-    st.subheader("🔍 실시간 데이터 조회")
-    search_query = st.text_input("필터링하고 싶은 키워드를 입력하세요 (예: 공정, 담당자, 품목)")
-    
-    if search_query:
-        # 모든 컬럼을 문자열로 변환 후 검색어 포함 여부 확인
-        mask = df.astype(str).apply(lambda x: x.str.contains(search_query, case=False)).any(axis=1)
-        display_df = df[mask]
-    else:
-        display_df = df
+# 3. 메인 화면 구성
+st.title(f"📊 {main_category} - {selected_dept} {f'({sub_dept})' if sub_dept else ''} 관리 현황")
+st.info(f"선택된 날짜: **{selected_date}**")
 
-    # 6. 결과 표 시각화
-    st.dataframe(display_df, use_container_width=True, height=500)
-
-    # 7. 추가 기능 (데이터 분석)
-    if not display_df.empty:
-        st.subheader("📊 시각화 분석")
-        numeric_cols = display_df.select_dtypes(include=['number']).columns.tolist()
+if uploaded_file:
+    try:
+        # 엑셀의 모든 시트 읽기
+        df_dict = pd.read_excel(uploaded_file, sheet_name=None)
+        sheet_names = list(df_dict.keys())
         
-        if numeric_cols:
-            target_col = st.selectbox("수치 분석 항목 선택", numeric_cols)
-            st.bar_chart(display_df[target_col])
-        else:
-            st.warning("이 시트에는 차트로 나타낼 수 있는 숫자 데이터가 없습니다.")
+        selected_sheet = st.selectbox("조회할 엑셀 시트 선택", sheet_names)
+        df = df_dict[selected_sheet]
 
+        # 4. 데이터 필터링 로직 (데이터 내에 날짜나 부서 컬럼이 있다고 가정할 경우)
+        # 만약 엑셀 내에 '날짜'나 '부서' 컬럼이 있다면 아래처럼 자동 필터링 기능을 넣을 수 있습니다.
+        # 예: df = df[df['부서'] == selected_dept] 
+
+        # 5. 요약 지표
+        col1, col2, col3 = st.columns(3)
+        col1.metric("선택 부서", selected_dept)
+        col2.metric("세부 구분", sub_dept if sub_dept else "해당 없음")
+        col3.metric("데이터 행 수", f"{len(df)}건")
+
+        st.divider()
+
+        # 6. 데이터 출력
+        st.subheader("📋 상세 내역")
+        st.dataframe(df, use_container_width=True)
+
+        # 7. 엑셀 다운로드 (필터링된 설정값 포함 가공용)
+        st.download_button(
+            label="현재 화면 데이터 추출 (CSV)",
+            data=df.to_csv(index=False).encode('utf-8-sig'),
+            file_name=f"{selected_date}_{selected_dept}_report.csv",
+            mime="text/csv"
+        )
+
+    except Exception as e:
+        st.error(f"파일 처리 중 오류 발생: {e}")
 else:
-    # 초기 화면 안내
-    st.write("---")
-    st.markdown("### 👈 왼쪽 사이드바에서 엑셀 파일을 먼저 업로드해 주세요!")
-    st.write("이 앱을 통해 다음과 같은 작업을 수행할 수 있습니다:")
+    st.warning("왼쪽 사이드바에서 엑셀 파일을 업로드해 주세요.")
+    # 초기 안내 가이드
     st.markdown("""
-    * **공정별 데이터 통합 관리**
-    * **날짜별 작업 내역 실시간 검색**
-    * **수치 데이터 기반의 자동 차트 생성**
-    * **필터링된 데이터 재추출**
+    ### 사용 방법
+    1. 왼쪽 사이드바에서 **날짜**를 선택합니다.
+    2. **대분류**와 **부서**를 지정합니다.
+    3. 관리 중인 **TOPO 시스템 엑셀 템플릿**을 업로드합니다.
+    4. 하단에 나타나는 표와 차트를 확인합니다.
     """)
