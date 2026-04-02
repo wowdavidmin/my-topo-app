@@ -22,22 +22,23 @@ with col3:
 
 st.divider()
 
-# 3. 데이터 구조 설계 (관리부 세부 부서 세분화 및 '간접' 일괄 적용)
-# 에러 방지를 위해 새로운 캐시 이름(df_v6)을 사용합니다.
-if "df_v6" not in st.session_state:
+# 3. 데이터 구조 설계 (생산지원부 세분화 및 '간접' 일괄 적용)
+# 에러 방지를 위해 새로운 캐시 이름(df_v7)을 사용합니다.
+if "df_v7" not in st.session_state:
     departments = [
         # 생산부
         ("생산부", "재단(Cutting)"), ("생산부", "봉제(Sewing)"), 
         ("생산부", "완성(Iron)"), ("생산부", "완성(Folding)"), 
         ("생산부", "완성(Packing)"), ("생산부", "완성창고"), 
         ("생산부", "WET PROCESS"), 
-        # 관리부 (세분화)
+        # 관리부
         ("관리부", "인사(HRD)"), ("관리부", "총무(GA)"), ("관리부", "시설(Utility)"),
         ("관리부", "IT"), ("관리부", "회계(ACC)"), ("관리부", "무역(EXIM)"),
         ("관리부", "IT INVENTORY"), ("관리부", "BP"), ("관리부", "CSR"),
         ("관리부", "기타(Cleaner/Nurse)"),
-        # 지원부
-        ("지원부", "지원공통")
+        # 생산지원부 (명칭 변경 및 부서 추가)
+        ("생산지원부", "원부자재(W/H)"), ("생산지원부", "생산사무실(Prod Office)"),
+        ("생산지원부", "생산기획(MD)"), ("생산지원부", "QA"), ("생산지원부", "IE/LEAN")
     ]
     
     initial_data = []
@@ -47,16 +48,15 @@ if "df_v6" not in st.session_state:
             initial_data.append({"대분류": main, "부서명": sub, "구분": "직접", "TO_인원": 0, "PO_인원": 0, "비고": ""})
             initial_data.append({"대분류": main, "부서명": sub, "구분": "간접", "TO_인원": 0, "PO_인원": 0, "비고": ""})
             initial_data.append({"대분류": main, "부서명": sub, "구분": "▶ 합계", "TO_인원": 0, "PO_인원": 0, "비고": ""}) 
-        elif main == "관리부":
-            # 관리부는 요청하신 대로 '간접'으로만 단일 표시
+        elif main in ["관리부", "생산지원부"]:
+            # 관리부와 생산지원부는 '간접'으로만 단일 표시
             initial_data.append({"대분류": main, "부서명": sub, "구분": "간접", "TO_인원": 0, "PO_인원": 0, "비고": ""})
         else:
-            # 지원부 등
             initial_data.append({"대분류": main, "부서명": sub, "구분": "해당없음", "TO_인원": 0, "PO_인원": 0, "비고": ""})
             
-    st.session_state.df_v6 = pd.DataFrame(initial_data)
+    st.session_state.df_v7 = pd.DataFrame(initial_data)
 
-df = st.session_state.df_v6.copy()
+df = st.session_state.df_v7.copy()
 
 # 4. 자동 계산 로직 (부서별 합계 및 전체 합계)
 for dept in df['부서명'].unique():
@@ -114,9 +114,9 @@ edited_df = st.data_editor(
 )
 
 # 7. 사용자가 입력한 값 세션에 저장 (다음 새로고침 시 자동 계산을 위해)
-st.session_state.df_v6["TO_인원"] = edited_df["TO_인원"]
-st.session_state.df_v6["PO_인원"] = edited_df["PO_인원"]
-st.session_state.df_v6["비고"] = edited_df["비고"]
+st.session_state.df_v7["TO_인원"] = edited_df["TO_인원"]
+st.session_state.df_v7["PO_인원"] = edited_df["PO_인원"]
+st.session_state.df_v7["비고"] = edited_df["비고"]
 
 # 8. 하단 합계 요약 대시보드
 st.divider()
